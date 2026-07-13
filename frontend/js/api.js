@@ -2,7 +2,8 @@
 // Keeping this in one file means if the backend URL or shape ever changes,
 // this is the only file that needs updating.
 
-const BASE = ''; // same-origin; change to 'http://localhost:4000' if hosting frontend separately
+
+const BASE = 'https://carrier-digital-library.onrender.com';// same-origin; change to 'http://localhost:4000' if hosting frontend separately
 
 async function request(path, options = {}) {
   const res = await fetch(BASE + path, {
