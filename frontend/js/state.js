@@ -1,12 +1,52 @@
 // state.js — small shared mutable state object.
 // Kept in one place so every view module reads/writes the same source of truth.
+//
+// It's also wrapped in a Proxy that persists a few fields to sessionStorage
+// (currentTab, adminAuthed, studentSession). That way, refreshing the page
+// (F5) keeps you on the same tab and logged in — the whole app re-fetches
+// its data fresh from the server, but you don't get bounced back to Home or
+// asked to log in again. Closing the browser tab clears it, same as any
+// normal session — so it isn't a permanent "remember me forever" login.
 
-export const state = {
-  currentTab: 'home',
-  adminAuthed: false,
-  studentSession: null,   // the logged-in student object, or null
-  signupSelectedSeat: null
+const STORAGE_KEY = 'gyanKakshSession';
+const PERSISTED_KEYS = ['currentTab', 'adminAuthed', 'studentSession'];
+
+function loadPersisted() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {}; // sessionStorage unavailable (private browsing, etc.) — just start fresh
+  }
+}
+
+function persist(key, value) {
+  try {
+    const existing = loadPersisted();
+    existing[key] = value;
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  } catch (e) {
+    // storage full or unavailable — the app still works, it just won't
+    // survive a refresh this time
+  }
+}
+
+const persisted = loadPersisted();
+
+const rawState = {
+  currentTab: persisted.currentTab || 'home',
+  adminAuthed: persisted.adminAuthed || false,
+  studentSession: persisted.studentSession || null, // the logged-in student object, or null
+  signupSelectedSeat: null // deliberately not persisted — sign-up always starts fresh on reload
 };
+
+export const state = new Proxy(rawState, {
+  set(target, prop, value) {
+    target[prop] = value;
+    if (PERSISTED_KEYS.includes(prop)) persist(prop, value);
+    return true;
+  }
+});
 
 export const TABS = [
   { id: 'home', label: 'Home' },

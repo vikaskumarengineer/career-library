@@ -56,6 +56,7 @@ export const api = {
   // messages / announcements
   getAnnouncements: () => request('/api/messages/announcements'),
   postAnnouncement: (text) => request('/api/messages/announcements', { method: 'POST', body: JSON.stringify({ text }) }),
+  deleteAnnouncement: (id) => request('/api/messages/announcements/' + id, { method: 'DELETE' }),
   getQueries: () => request('/api/messages/queries'),
   postQuery: (studentId, studentName, text) =>
     request('/api/messages/queries', { method: 'POST', body: JSON.stringify({ studentId, studentName, text }) }),

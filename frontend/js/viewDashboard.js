@@ -3,7 +3,7 @@ import { el } from './ui.js';
 
 let leafletMap = null; // keep a reference so we can destroy/recreate on re-render
 
-export async function renderDashboard(root, { openSeatTicket }) {
+export async function renderDashboard(root, { openSeatTicket, rerender }) {
   const [students, seats, settings, announcements] = await Promise.all([
     api.getStudents(), api.getSeats(), api.getSettings(), api.getAnnouncements()
   ]);
@@ -64,10 +64,19 @@ export async function renderDashboard(root, { openSeatTicket }) {
   const annForm = el('div', { style: 'display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;' });
   annForm.innerHTML = `<input id="annInput" placeholder="e.g. Library closed on Sunday" style="flex:1;min-width:200px;"><button class="btn" id="annBtn">Post</button>`;
   annPanel.appendChild(annForm);
-  const annList = el('div');
+  const annList = el('div', { style: 'max-height:340px;overflow-y:auto;' });
   if (announcements.length === 0) annList.innerHTML = '<p class="empty">No announcements yet.</p>';
-  else announcements.slice().reverse().slice(0, 6).forEach(a => {
-    annList.appendChild(el('div', { className: 'ann-item' }, `${a.text}<div class="ann-date">${a.date}</div>`));
+  else announcements.slice().reverse().forEach(a => {
+    const item = el('div', { className: 'ann-item', style: 'display:flex;justify-content:space-between;align-items:flex-start;gap:10px;' });
+    item.innerHTML = `<div>${a.text}<div class="ann-date">${a.date}</div></div>`;
+    const delBtn = el('button', { className: 'btn ghost', style: 'font-size:11px;padding:5px 9px;min-height:auto;flex-shrink:0;' }, 'Delete');
+    delBtn.onclick = async () => {
+      if (!confirm('Delete this announcement?')) return;
+      await api.deleteAnnouncement(a.id);
+      rerender();
+    };
+    item.appendChild(delBtn);
+    annList.appendChild(item);
   });
   annPanel.appendChild(annList);
   root.appendChild(annPanel);
@@ -75,7 +84,7 @@ export async function renderDashboard(root, { openSeatTicket }) {
     const val = annForm.querySelector('#annInput').value.trim();
     if (!val) return;
     await api.postAnnouncement(val);
-    renderDashboard(clearAndReturn(root), { openSeatTicket });
+    rerender();
   };
 
   // ---- Seat map ----
@@ -106,4 +115,3 @@ export async function renderDashboard(root, { openSeatTicket }) {
   root.appendChild(seatPanel);
 }
 
-function clearAndReturn(root) { root.innerHTML = ''; return root; }

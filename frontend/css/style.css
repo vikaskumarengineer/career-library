@@ -198,7 +198,6 @@ label{font-size:11.5px;color:var(--ink-dim);display:block;margin-bottom:4px;}
 .lightbox{position:relative;max-width:min(92vw,900px);max-height:90vh;display:flex;align-items:center;justify-content:center;}
 .lightbox-img{
   max-width:92vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:block;
-  position:fixed;top:0;left:0;transform-origin:top left;
   transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .25s ease;
 }
 .lightbox-controls{opacity:0;transition:opacity .25s ease .15s;}

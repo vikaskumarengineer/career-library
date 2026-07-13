@@ -20,6 +20,16 @@ router.post('/announcements', (req, res) => {
   res.status(201).json(item);
 });
 
+// DELETE /api/messages/announcements/:id
+router.delete('/announcements/:id', (req, res) => {
+  const db = readDb();
+  const before = db.announcements.length;
+  db.announcements = db.announcements.filter(a => a.id !== req.params.id);
+  if (db.announcements.length === before) return res.status(404).json({ message: 'Announcement not found' });
+  writeDb(db);
+  res.json({ success: true });
+});
+
 // ---- Student queries / "Ask Admin" ----
 // GET /api/messages/queries
 router.get('/queries', (req, res) => {
