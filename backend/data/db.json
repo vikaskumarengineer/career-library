@@ -1,0 +1,368 @@
+{
+  "students": [
+    {
+      "id": "stu_1nzo5mp",
+      "name": "vikas",
+      "roll": "CL-100",
+      "gender": "Boy",
+      "examTarget": "UPSC",
+      "phone": "9855984734",
+      "feeAmount": 600,
+      "feeStatus": "due",
+      "feeHistory": {
+        "2026-07": {
+          "amount": 600,
+          "status": "due",
+          "paidDate": null,
+          "reminderSent": true
+        }
+      },
+      "pin": "4444",
+      "dailyGoalHours": 7,
+      "customSubjects": [],
+      "customTopics": {},
+      "joinDate": "2026-07-13",
+      "password": "$2a$10$8goxbbBEsyhQcTXjZYclquxm791Va7uKJx3WV.QmB4OmxBQPq1FR."
+    },
+    {
+      "id": "stu_4svv4hk",
+      "name": "rohit",
+      "roll": "CL-101",
+      "gender": "Boy",
+      "examTarget": "UPSC",
+      "phone": "9855984734",
+      "feeAmount": 600,
+      "feeStatus": "due",
+      "feeHistory": {
+        "2026-07": {
+          "amount": 600,
+          "status": "due",
+          "paidDate": null,
+          "reminderSent": true
+        }
+      },
+      "pin": "1111",
+      "dailyGoalHours": 3,
+      "customSubjects": [],
+      "customTopics": {},
+      "joinDate": "2026-07-13"
+    },
+    {
+      "id": "stu_5q9pbl3",
+      "name": "akash",
+      "roll": "CL-102",
+      "gender": "Boy",
+      "examTarget": "UPSC",
+      "phone": "9855984734",
+      "feeAmount": 600,
+      "feeStatus": "due",
+      "feeHistory": {
+        "2026-07": {
+          "amount": 600,
+          "status": "due",
+          "paidDate": null,
+          "reminderSent": true
+        }
+      },
+      "pin": "2222",
+      "dailyGoalHours": 3,
+      "customSubjects": [],
+      "customTopics": {},
+      "joinDate": "2026-07-13"
+    }
+  ],
+  "seats": [
+    {
+      "seatNo": 1,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 2,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 3,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 4,
+      "occupantId": "stu_4svv4hk",
+      "shift": "Full Day",
+      "holdUntil": null
+    },
+    {
+      "seatNo": 5,
+      "occupantId": "stu_5q9pbl3",
+      "shift": "Full Day",
+      "holdUntil": null
+    },
+    {
+      "seatNo": 6,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 7,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 8,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 9,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 10,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 11,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 12,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 13,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 14,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 15,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 16,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 17,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 18,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 19,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 20,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 21,
+      "occupantId": "stu_1nzo5mp",
+      "shift": "Full Day",
+      "holdUntil": null
+    },
+    {
+      "seatNo": 22,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 23,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 24,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 25,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 26,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 27,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 28,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 29,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 30,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 31,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 32,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 33,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 34,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 35,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 36,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 37,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 38,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 39,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    },
+    {
+      "seatNo": 40,
+      "occupantId": null,
+      "shift": null,
+      "holdUntil": null
+    }
+  ],
+  "timetable": [],
+  "announcements": [],
+  "queries": [],
+  "notifications": [
+    {
+      "id": "note_uqrs2mv",
+      "studentId": "stu_1nzo5mp",
+      "studentName": "vikas",
+      "text": "⚠ Reminder: your fee of ₹600 for 2026-07 is still due. Please pay soon to avoid any interruption.",
+      "date": "13/7/2026, 3:27:37 pm",
+      "read": true,
+      "auto": true
+    },
+    {
+      "id": "note_i8li2n6",
+      "studentId": "stu_4svv4hk",
+      "studentName": "rohit",
+      "text": "⚠ Reminder: your fee of ₹600 for 2026-07 is still due. Please pay soon to avoid any interruption.",
+      "date": "13/7/2026, 3:27:37 pm",
+      "read": false,
+      "auto": true
+    },
+    {
+      "id": "note_j1hqkqv",
+      "studentId": "stu_5q9pbl3",
+      "studentName": "akash",
+      "text": "⚠ Reminder: your fee of ₹600 for 2026-07 is still due. Please pay soon to avoid any interruption.",
+      "date": "13/7/2026, 3:27:37 pm",
+      "read": false,
+      "auto": true
+    }
+  ],
+  "enquiries": [],
+  "attendance": {},
+  "study": {},
+  "settings": {
+    "libraryName": "Carrier Digital Library",
+    "address": "Chaubeypur, Gonda, Uttar Pradesh",
+    "lat": 26.8467,
+    "lng": 80.9462,
+    "photoUrl": "/uploads/library-photo-1783934377997.webp",
+    "photos": [
+      "/uploads/library-photo-1783934367101.png",
+      "/uploads/library-photo-1783934377997.webp"
+    ],
+    "upiId": "",
+    "upiPayeeName": "",
+    "upiQrImage": "/uploads/upi-qr-1783934524894.png",
+    "adminPhone": "",
+    "adminPassword": "admin123",
+    "feeReminderDay": 5
+  }
+}

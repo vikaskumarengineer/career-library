@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Carrier Digital Library — Reading Room Manager</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark logo-mark"><img src="assets/logo-small.png" alt="Carrier Digital Library logo"></div>
+      <div><h1 class="brand-name">Carrier Digital Library</h1><p>Chaubeypur, Gonda · attendance · fees · syllabus tracker</p></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div id="clock" class="mono" style="color:var(--ink-dim);font-size:12.5px;"></div>
+      <a id="adminContactBtn" class="btn ghost" style="display:none;font-size:11px;padding:6px 10px;min-height:auto;text-decoration:none;">📞 Admin</a>
+      <button id="themeToggleBtn" class="btn ghost" style="font-size:11px;padding:6px 10px;min-height:auto;">☀ Light Mode</button>
+      <button id="adminLogoutBtn" class="btn ghost" style="display:none;font-size:11px;padding:6px 10px;min-height:auto;">Admin Logout</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <div id="app"></div>
+
+  <footer class="note">Full-stack build — data is stored on your own backend server (backend/data/db.json).</footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
