@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Gyan Kaksh Library — Full-Stack Management System
 
 A complete library/coaching-center management system: seat booking, attendance,
@@ -100,3 +101,6 @@ multi-tenant SaaS product:
   you'd need to replace.
 - For production use (real student data, public internet exposure), add
   HTTPS, hashed passwords, and rate limiting.
+=======
+# career-library
+>>>>>>> ad881827da889d17e1b6756299c11edc3244da9d
