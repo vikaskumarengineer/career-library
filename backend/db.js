@@ -1,18 +1,80 @@
-// db.js — a tiny JSON-file "database".
-// No external database server needed. Everything lives in data/db.json,
-// so you can open, read, and back it up like any normal file.
+// db.js — MongoDB Atlas–backed replacement for the old JSON-file "database".
+//
+// WHY IT'S SHAPED THIS WAY
+// The rest of the app (every route file) already does:
+//     const db = readDb();
+//     ... mutate db.students / db.seats / db.settings / etc ...
+//     writeDb(db);
+// That pattern is preserved exactly — readDb()/writeDb() still hand back and
+// accept the *same* plain JS object shape the old db.json had. The only
+// change routes need is adding `await` in front of the calls, because talking
+// to MongoDB is asynchronous (unlike fs.readFileSync/writeFileSync).
+//
+// HOW DATA IS STORED
+// The entire app state (students, seats, attendance, settings, ...) is kept
+// as ONE document in a MongoDB collection, at a fixed _id ("app-data"). This
+// mirrors the old db.json structure almost exactly, which is what makes this
+// a low-risk, drop-in migration instead of a ground-up rewrite. It's a good
+// fit for this app's current scale (one library, at most a few thousand
+// students/attendance rows — nowhere near MongoDB's 16MB single-document
+// limit). If this ever grows into a multi-branch / high-concurrency system,
+// splitting into one collection per entity (students, seats, attendance...)
+// is the natural next step — see MIGRATION_NOTES.md for that path.
+//
+// WHY THIS FIXES THE DATA-LOSS PROBLEM
+// db.json lived on Render's local (ephemeral) disk, which is wiped and
+// replaced on every deploy. MongoDB Atlas is a separate, always-on database
+// service — deploying new code to Render never touches it. Code changes and
+// data are now fully decoupled.
 
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
 const { hashPassword } = require('./password');
 
-// Computed once at startup — defaultData() is called on every readDb() as a
-// fallback-merge template, so hashing here (rather than inside the function)
-// avoids re-running bcrypt on every single request.
 const DEFAULT_ADMIN_PASSWORD_HASH = hashPassword('admin123');
-
-const DB_FILE = path.join(__dirname, 'data', 'db.json');
 const SEAT_COUNT = 40;
+
+const MONGODB_URI = process.env.MONGODB_URI;
+const DB_NAME = process.env.MONGODB_DB_NAME || 'library_management';
+const COLLECTION_NAME = 'appdata';
+const DOC_ID = 'app-data';
+
+if (!MONGODB_URI) {
+  console.error(
+    'FATAL: MONGODB_URI environment variable is not set.\n' +
+    'Create backend/.env locally (see .env.example) or, on Render, add it under\n' +
+    'Dashboard → your service → Environment.'
+  );
+  process.exit(1);
+}
+
+let client;
+let collection;
+let connectingPromise; // guards against opening multiple connections if several requests race in before the first connect() finishes
+
+async function getCollection() {
+  if (collection) return collection;
+  if (!connectingPromise) {
+    connectingPromise = (async () => {
+      client = new MongoClient(MONGODB_URI, {
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 10000
+      });
+      await client.connect();
+      const database = client.db(DB_NAME);
+      collection = database.collection(COLLECTION_NAME);
+      console.log(`Connected to MongoDB Atlas (database: "${DB_NAME}")`);
+      return collection;
+    })();
+  }
+  return connectingPromise;
+}
+
+// Called once from server.js at startup, so a bad connection string / IP
+// whitelist issue fails the deploy immediately and loudly — instead of the
+// app appearing to start fine and only breaking on the first API request.
+async function connectDB() {
+  await getCollection();
+}
 
 // "2026-07" style key for the current month, and a matching display label.
 function monthKey(d = new Date()) {
@@ -79,6 +141,7 @@ function sendAutoFeeReminders(db) {
 
 function defaultData() {
   return {
+    _id: DOC_ID,
     students: [],           // { id, name, roll, gender, examTarget, phone, feeAmount, feeStatus, password, dailyGoalHours, joinDate }
     seats: Array.from({ length: SEAT_COUNT }, (_, i) => ({
       seatNo: i + 1, occupantId: null, shift: null, holdUntil: null
@@ -107,39 +170,45 @@ function defaultData() {
   };
 }
 
-function ensureDbFile() {
-  const dir = path.dirname(DB_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(defaultData(), null, 2));
+function stripId(data) {
+  const { _id, ...rest } = data;
+  return rest;
+}
+
+// Reads the single app-data document, creating it with defaults on first
+// run (equivalent to the old ensureDbFile()), then applies the same
+// "fill in missing keys" / auto-monthly-fee / auto-reminder logic the old
+// db.js ran on every read. Returns a plain object — same shape as before.
+async function readDb() {
+  const col = await getCollection();
+  let data = await col.findOne({ _id: DOC_ID });
+
+  if (!data) {
+    data = defaultData();
+    await col.insertOne(data);
+    return stripId(data);
   }
+
+  // fill in any missing top-level keys (in case of upgrades)
+  const merged = Object.assign(defaultData(), data);
+  // settings is merged shallowly above, so an older document (saved before
+  // the "photos" field existed) would be missing it — fill it back in.
+  merged.settings = Object.assign(defaultData().settings, data.settings || {});
+  if (!Array.isArray(merged.settings.photos)) merged.settings.photos = [];
+  if (!merged.seats || merged.seats.length !== SEAT_COUNT) merged.seats = defaultData().seats;
+
+  let changed = false;
+  if (ensureCurrentMonthFees(merged)) changed = true;
+  if (sendAutoFeeReminders(merged)) changed = true;
+  if (changed) await writeDb(stripId(merged));
+
+  return stripId(merged);
 }
 
-function readDb() {
-  ensureDbFile();
-  const raw = fs.readFileSync(DB_FILE, 'utf8');
-  try {
-    const data = JSON.parse(raw);
-    // fill in any missing top-level keys (in case of upgrades)
-    const merged = Object.assign(defaultData(), data);
-    // settings is merged shallowly above, so an older db.json (saved before
-    // the "photos" field existed) would be missing it — fill it back in.
-    merged.settings = Object.assign(defaultData().settings, data.settings || {});
-    if (!Array.isArray(merged.settings.photos)) merged.settings.photos = [];
-    if (!merged.seats || merged.seats.length !== SEAT_COUNT) merged.seats = defaultData().seats;
-    if (ensureCurrentMonthFees(merged)) writeDb(merged);
-    if (sendAutoFeeReminders(merged)) writeDb(merged);
-    return merged;
-  } catch (e) {
-    console.error('db.json was corrupted, resetting to defaults', e);
-    const fresh = defaultData();
-    writeDb(fresh);
-    return fresh;
-  }
+async function writeDb(data) {
+  const col = await getCollection();
+  const { _id, ...rest } = data;
+  await col.updateOne({ _id: DOC_ID }, { $set: rest }, { upsert: true });
 }
 
-function writeDb(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
-
-module.exports = { readDb, writeDb, SEAT_COUNT, monthKey };
+module.exports = { readDb, writeDb, connectDB, SEAT_COUNT, monthKey };

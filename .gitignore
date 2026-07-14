@@ -1,0 +1,9 @@
+node_modules/
+backend/.env
+.DS_Store
+npm-debug.log*
+
+# db.json is now only a local-dev fallback / migration source — no longer
+# the live data store, but keep it out of git anyway since it may contain
+# real student data if you copied it down from Render for migration.
+backend/data/db.json

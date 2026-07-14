@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { readDb, writeDb, monthKey } = require('../db');
 const { hashPassword, verifyPassword } = require('../password');
+const asyncHandler = require('../utils/asyncHandler');
 
 function uid(prefix) { return prefix + '_' + Math.random().toString(36).slice(2, 9); }
 
@@ -14,14 +15,14 @@ function sanitize(student) {
 }
 
 // GET /api/students
-router.get('/', (req, res) => {
-  const db = readDb();
+router.get('/', asyncHandler(async (req, res) => {
+  const db = await readDb();
   res.json(db.students.map(sanitize));
-});
+}));
 
 // POST /api/students  — create a student (used by both admin "Add Student" and public "Create Account")
-router.post('/', (req, res) => {
-  const db = readDb();
+router.post('/', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const b = req.body;
   if (!b.name || !b.name.trim()) return res.status(400).json({ message: 'Name is required' });
 
@@ -57,15 +58,15 @@ router.post('/', (req, res) => {
     }
   }
 
-  writeDb(db);
+  await writeDb(db);
   res.status(201).json(sanitize(student));
-});
+}));
 
 // POST /api/students/set-password  { roll, password }
 // First-time password setup for accounts the admin created without one.
 // Only works while no password exists yet — once set, use /change-password instead.
-router.post('/set-password', (req, res) => {
-  const db = readDb();
+router.post('/set-password', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const { roll, password } = req.body;
   const student = db.students.find(s => s.roll.toLowerCase() === String(roll || '').toLowerCase());
   if (!student) return res.status(404).json({ message: 'No account matches that Roll Number' });
@@ -76,13 +77,13 @@ router.post('/set-password', (req, res) => {
     return res.status(400).json({ message: 'Password must be at least 4 characters.' });
   }
   student.password = hashPassword(password);
-  writeDb(db);
+  await writeDb(db);
   res.json({ success: true, student: sanitize(student) });
-});
+}));
 
 // PATCH /api/students/:id/password  { currentPassword, newPassword }
-router.patch('/:id/password', (req, res) => {
-  const db = readDb();
+router.patch('/:id/password', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const student = db.students.find(s => s.id === req.params.id);
   if (!student) return res.status(404).json({ message: 'Student not found' });
   const { currentPassword, newPassword } = req.body;
@@ -93,27 +94,27 @@ router.patch('/:id/password', (req, res) => {
     return res.status(400).json({ message: 'New password must be at least 4 characters.' });
   }
   student.password = hashPassword(newPassword);
-  writeDb(db);
+  await writeDb(db);
   res.json({ success: true, student: sanitize(student) });
-});
+}));
 
 // DELETE /api/students/:id
-router.delete('/:id', (req, res) => {
-  const db = readDb();
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const db = await readDb();
   db.students = db.students.filter(s => s.id !== req.params.id);
   db.seats.forEach(seat => {
     if (seat.occupantId === req.params.id) { seat.occupantId = null; seat.shift = null; seat.holdUntil = null; }
   });
-  writeDb(db);
+  await writeDb(db);
   res.json({ success: true });
-});
+}));
 
 // PATCH /api/students/:id/fee  { monthKey, status?, amount? }
 // Sets a specific month's fee status and/or amount. If that month doesn't
 // exist yet on the student, it's created first (so admins can also record
 // a past or future month manually, not just the current one).
-router.patch('/:id/fee', (req, res) => {
-  const db = readDb();
+router.patch('/:id/fee', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const student = db.students.find(s => s.id === req.params.id);
   if (!student) return res.status(404).json({ message: 'Student not found' });
 
@@ -140,9 +141,9 @@ router.patch('/:id/fee', (req, res) => {
     student.feeAmount = entry.amount;
   }
 
-  writeDb(db);
+  await writeDb(db);
   res.json(sanitize(student));
-});
+}));
 
 // PATCH /api/students/:id/fee/claim  { monthKey }
 // A student says "I've paid" after scanning the UPI QR. This does NOT mark
@@ -150,8 +151,8 @@ router.patch('/:id/fee', (req, res) => {
 // confirm that money actually arrived. It just flags the month as
 // "claimed" (pending review) and drops a note in the admin Messages tab,
 // so the admin knows to check their bank/UPI app and confirm manually.
-router.patch('/:id/fee/claim', (req, res) => {
-  const db = readDb();
+router.patch('/:id/fee/claim', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const student = db.students.find(s => s.id === req.params.id);
   if (!student) return res.status(404).json({ message: 'Student not found' });
 
@@ -178,13 +179,13 @@ router.patch('/:id/fee/claim', (req, res) => {
     resolved: false
   });
 
-  writeDb(db);
+  await writeDb(db);
   res.json(sanitize(student));
-});
+}));
 
 
-router.patch('/:id/subjects', (req, res) => {
-  const db = readDb();
+router.patch('/:id/subjects', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const student = db.students.find(s => s.id === req.params.id);
   if (!student) return res.status(404).json({ message: 'Student not found' });
   const subject = (req.body.subject || '').trim();
@@ -193,13 +194,13 @@ router.patch('/:id/subjects', (req, res) => {
   if (!student.customSubjects.includes(subject)) student.customSubjects.push(subject);
   if (!student.customTopics) student.customTopics = {};
   if (!student.customTopics[subject]) student.customTopics[subject] = [];
-  writeDb(db);
+  await writeDb(db);
   res.json(sanitize(student));
-});
+}));
 
 // PATCH /api/students/:id/topics  { subject, topic }  — student adds a topic under one of their subjects
-router.patch('/:id/topics', (req, res) => {
-  const db = readDb();
+router.patch('/:id/topics', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const student = db.students.find(s => s.id === req.params.id);
   if (!student) return res.status(404).json({ message: 'Student not found' });
   const subject = (req.body.subject || '').trim();
@@ -210,15 +211,15 @@ router.patch('/:id/topics', (req, res) => {
   if (!student.customTopics) student.customTopics = {};
   if (!student.customTopics[subject]) student.customTopics[subject] = [];
   if (!student.customTopics[subject].includes(topic)) student.customTopics[subject].push(topic);
-  writeDb(db);
+  await writeDb(db);
   res.json(sanitize(student));
-});
+}));
 
 // POST /api/students/:id/syllabus/import  { syllabus: { subject: [topic, ...] } }
 // Lets a student opt in to copying a built-in example syllabus (e.g. the UPSC one)
 // into their own checklist — nothing is ever added here automatically.
-router.post('/:id/syllabus/import', (req, res) => {
-  const db = readDb();
+router.post('/:id/syllabus/import', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const student = db.students.find(s => s.id === req.params.id);
   if (!student) return res.status(404).json({ message: 'Student not found' });
   const syllabus = req.body.syllabus || {};
@@ -231,8 +232,8 @@ router.post('/:id/syllabus/import', (req, res) => {
       if (!student.customTopics[subject].includes(topic)) student.customTopics[subject].push(topic);
     });
   });
-  writeDb(db);
+  await writeDb(db);
   res.json(sanitize(student));
-});
+}));
 
 module.exports = router;

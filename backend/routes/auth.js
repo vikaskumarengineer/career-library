@@ -2,20 +2,21 @@ const express = require('express');
 const router = express.Router();
 const { readDb } = require('../db');
 const { verifyPassword } = require('../password');
+const asyncHandler = require('../utils/asyncHandler');
 
 // POST /api/auth/admin  { password }
-router.post('/admin', (req, res) => {
-  const db = readDb();
+router.post('/admin', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const { password } = req.body;
   if (verifyPassword(password, db.settings.adminPassword)) {
     return res.json({ success: true });
   }
   res.status(401).json({ success: false, message: 'Incorrect password' });
-});
+}));
 
 // POST /api/auth/student  { roll, password }
-router.post('/student', (req, res) => {
-  const db = readDb();
+router.post('/student', asyncHandler(async (req, res) => {
+  const db = await readDb();
   const { roll, password } = req.body;
   const student = db.students.find(
     s => s.roll.toLowerCase() === String(roll || '').toLowerCase()
@@ -37,6 +38,6 @@ router.post('/student', (req, res) => {
 
   const { password: _omit, ...safeStudent } = student;
   res.json({ success: true, student: safeStudent });
-});
+}));
 
 module.exports = router;
