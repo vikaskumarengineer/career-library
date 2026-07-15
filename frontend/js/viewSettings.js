@@ -57,9 +57,11 @@ export async function renderSettings(root, { rerender }) {
   `;
   mapPanel.appendChild(form);
 
-  const searchRow = el('div', { style: 'display:flex;gap:8px;margin-bottom:12px;' });
-  searchRow.innerHTML = `<input id="s_search" placeholder="Search an address (e.g. Hazratganj, Lucknow)" style="flex:1;"><button class="btn ghost" id="s_searchBtn">Search</button>`;
+  const searchRow = el('div', { style: 'display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;' });
+  searchRow.innerHTML = `<input id="s_search" placeholder="Search an address (e.g. Hazratganj, Lucknow)" style="flex:1;min-width:180px;"><button class="btn ghost" id="s_searchBtn">Search</button><button class="btn" id="s_geoBtn">📍 Use My Current Location</button>`;
   mapPanel.appendChild(searchRow);
+  const geoStatus = el('div', { id: 's_geoStatus', className: 'sub', style: 'margin:-4px 0 10px;display:none;' });
+  mapPanel.appendChild(geoStatus);
 
   const mapBox = el('div', { className: 'map-box', id: 'settingsMap' });
   mapPanel.appendChild(mapBox);
@@ -120,6 +122,43 @@ export async function renderSettings(root, { rerender }) {
     } finally {
       searchRow.querySelector('#s_searchBtn').textContent = 'Search';
     }
+  };
+
+  // "Use My Current Location" — reads real GPS from the device this is
+  // opened on. Only useful when clicked by someone actually standing at
+  // the library (e.g. on the admin's phone), which is exactly the intended use.
+  searchRow.querySelector('#s_geoBtn').onclick = () => {
+    if (!navigator.geolocation) {
+      alert('Your browser doesn\'t support location access. Try a different browser, or search/click the map instead.');
+      return;
+    }
+    const btn = searchRow.querySelector('#s_geoBtn');
+    btn.disabled = true; btn.textContent = 'Locating…';
+    geoStatus.style.display = 'block';
+    geoStatus.textContent = 'Requesting location permission — please allow it if your browser asks.';
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        mapPanel.querySelector('#s_lat').value = latitude.toFixed(6);
+        mapPanel.querySelector('#s_lng').value = longitude.toFixed(6);
+        if (pickerMap && pickerMarker) {
+          pickerMap.setView([latitude, longitude], 17);
+          pickerMarker.setLatLng([latitude, longitude]);
+        }
+        geoStatus.textContent = `Location set (accurate to about ${Math.round(accuracy)}m). Click "Save Library Info" below to keep it.`;
+        btn.disabled = false; btn.textContent = '📍 Use My Current Location';
+      },
+      (err) => {
+        let msg = 'Could not get your location.';
+        if (err.code === err.PERMISSION_DENIED) msg = 'Location permission was denied. Allow location access in your browser settings and try again.';
+        else if (err.code === err.POSITION_UNAVAILABLE) msg = 'Your device could not determine its location right now. Try again outdoors or near a window.';
+        else if (err.code === err.TIMEOUT) msg = 'Location request timed out. Please try again.';
+        geoStatus.textContent = msg;
+        btn.disabled = false; btn.textContent = '📍 Use My Current Location';
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
   };
 
   saveBtn.onclick = async () => {

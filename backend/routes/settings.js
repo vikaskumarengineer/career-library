@@ -1,53 +1,54 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const sharp = require('sharp');
 const { readDb, writeDb } = require('../db');
 const { hashPassword, verifyPassword } = require('../password');
 const asyncHandler = require('../utils/asyncHandler');
 
-// NOTE: uploaded images (library photos, UPI QR) still live on local disk
-// under backend/data/uploads, same as before. That folder is NOT covered by
-// this migration and is still wiped on every Render deploy/redeploy, same as
-// db.json used to be — this migration only makes the JSON DATA permanent.
-// If you also need uploaded images to survive deploys, see the "Uploads"
-// section in MIGRATION_NOTES.md for two options (Render persistent disk, or
-// a cloud file store like Cloudinary/S3).
-const UPLOAD_DIR = path.join(__dirname, '..', 'data', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// ---------------------------------------------------------------------
+// WHY THIS FILE NO LONGER WRITES TO LOCAL DISK
+//
+// Uploaded images (library photos, UPI QR screenshot) used to be saved to
+// backend/data/uploads/ with multer's diskStorage, and only a URL like
+// "/uploads/library-photo-123.jpg" was stored in MongoDB. That folder lives
+// on Render's local container disk, which is wiped on every redeploy — so
+// even though the *database* migration fixed students/attendance/fees, the
+// photo *files* themselves still vanished (their URLs stayed in MongoDB,
+// but the files those URLs pointed to were gone — hence the broken image
+// icons after every deploy).
+//
+// Fix: store the image itself as a base64 data URI directly inside the same
+// MongoDB document everything else already lives in. A data URI
+// ("data:image/jpeg;base64,...") works as a completely normal value for an
+// <img src="..."> — so the frontend needs ZERO changes. Images are resized
+// and compressed with sharp first (max 1600px wide, ~72% JPEG quality) to
+// keep each one small — typically 100–300KB — so a whole gallery stays
+// comfortably under MongoDB's 16MB single-document limit.
+// ---------------------------------------------------------------------
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.jpg';
-    cb(null, 'library-photo-' + Date.now() + ext);
-  }
-});
+const MAX_PHOTOS = 60; // soft safety cap so the document can never approach the 16MB limit
+
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB raw upload max; sharp compresses it down after
   fileFilter: (req, file, cb) => {
     if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files are allowed'));
     cb(null, true);
   }
 });
 
-const qrStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.jpg';
-    cb(null, 'upi-qr-' + Date.now() + ext);
-  }
-});
-const uploadQr = multer({
-  storage: qrStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files are allowed'));
-    cb(null, true);
-  }
-});
+// Resizes + compresses an uploaded image buffer into a small JPEG, then
+// returns it as a data URI ready to store directly in MongoDB and drop
+// straight into an <img src="...">.
+async function toStoredDataUri(buffer, { maxWidth = 1600, quality = 72 } = {}) {
+  const outBuffer = await sharp(buffer)
+    .rotate() // respects the photo's EXIF orientation (fixes sideways phone photos)
+    .resize({ width: maxWidth, withoutEnlargement: true })
+    .jpeg({ quality, mozjpeg: true })
+    .toBuffer();
+  return `data:image/jpeg;base64,${outBuffer.toString('base64')}`;
+}
 
 // GET /api/settings
 router.get('/', asyncHandler(async (req, res) => {
@@ -79,15 +80,23 @@ router.put('/', asyncHandler(async (req, res) => {
 router.post('/photo', upload.single('photo'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No photo uploaded' });
   const db = await readDb();
-  const url = '/uploads/' + req.file.filename;
   if (!Array.isArray(db.settings.photos)) db.settings.photos = [];
-  db.settings.photos.push(url);
-  db.settings.photoUrl = url; // kept for any older code paths that still read a single photoUrl
+  if (db.settings.photos.length >= MAX_PHOTOS) {
+    return res.status(400).json({ message: `Gallery is full (max ${MAX_PHOTOS} photos). Delete some old ones first.` });
+  }
+
+  const dataUri = await toStoredDataUri(req.file.buffer);
+  db.settings.photos.push(dataUri);
+  db.settings.photoUrl = dataUri; // kept for any older code paths that still read a single photoUrl
   await writeDb(db);
-  res.json({ photoUrl: url, photos: db.settings.photos });
+  res.json({ photoUrl: dataUri, photos: db.settings.photos });
 }));
 
 // DELETE /api/settings/photo  { url }
+// "url" here is really the stored data URI (or, for anything uploaded
+// before this fix, an old "/uploads/..." path) — either way, just remove
+// whichever entry matches from the array. Nothing lives on disk to clean
+// up anymore.
 router.delete('/photo', asyncHandler(async (req, res) => {
   const db = await readDb();
   const { url } = req.body;
@@ -96,12 +105,6 @@ router.delete('/photo', asyncHandler(async (req, res) => {
     db.settings.photoUrl = db.settings.photos[db.settings.photos.length - 1] || null;
   }
   await writeDb(db);
-  // best-effort: remove the actual file from disk too
-  const filename = url && url.split('/').pop();
-  if (filename) {
-    const filePath = path.join(UPLOAD_DIR, filename);
-    fs.unlink(filePath, () => {});
-  }
   res.json({ photos: db.settings.photos });
 }));
 
@@ -109,31 +112,22 @@ router.delete('/photo', asyncHandler(async (req, res) => {
 // Admin uploads a screenshot of their REAL UPI QR code (from GPay/PhonePe/Paytm etc).
 // We show this image to students as-is — nothing is ever auto-generated, which is
 // what was causing "QR not accepted" scan failures.
-router.post('/qr', uploadQr.single('qr'), asyncHandler(async (req, res) => {
+router.post('/qr', upload.single('qr'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No QR image uploaded' });
   const db = await readDb();
-  const oldUrl = db.settings.upiQrImage;
-  const url = '/uploads/' + req.file.filename;
-  db.settings.upiQrImage = url;
+  // QR codes need to stay crisp (scannable), so keep them a bit larger/higher
+  // quality than gallery photos, but still compressed enough to store safely.
+  const dataUri = await toStoredDataUri(req.file.buffer, { maxWidth: 900, quality: 90 });
+  db.settings.upiQrImage = dataUri;
   await writeDb(db);
-  // best-effort: remove the previous QR image file from disk
-  if (oldUrl) {
-    const oldFilename = oldUrl.split('/').pop();
-    if (oldFilename) fs.unlink(path.join(UPLOAD_DIR, oldFilename), () => {});
-  }
-  res.json({ upiQrImage: url });
+  res.json({ upiQrImage: dataUri });
 }));
 
 // DELETE /api/settings/qr — remove the uploaded QR image
 router.delete('/qr', asyncHandler(async (req, res) => {
   const db = await readDb();
-  const url = db.settings.upiQrImage;
   db.settings.upiQrImage = null;
   await writeDb(db);
-  if (url) {
-    const filename = url.split('/').pop();
-    if (filename) fs.unlink(path.join(UPLOAD_DIR, filename), () => {});
-  }
   res.json({ success: true });
 }));
 

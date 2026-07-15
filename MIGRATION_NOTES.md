@@ -62,26 +62,50 @@ bigger, separate project, not something this data-loss fix requires.
 response shape as before. `frontend/js/api.js` and everything downstream of
 it needed no changes at all.
 
-## ⚠️ Uploads (photos, UPI QR) are a separate, still-open issue
+## ✅ Uploads (photos, UPI QR) — now also fixed
 
-Your requirements were specifically about `db.json` data loss, so that's
-what this migration fixes. But it's worth flagging clearly: **uploaded
-images** (library photos and the UPI QR screenshot, handled by `multer` in
-`routes/settings.js`) are saved to `backend/data/uploads/` on local disk —
-which is the *same* ephemeral disk `db.json` used to live on. They will
-still be wiped on every Render deploy after this migration.
+The first version of this migration left uploaded images (library photos,
+UPI QR screenshot) on local disk (`backend/data/uploads/`), the same
+ephemeral disk `db.json` used to live on — so photos still vanished on every
+Render deploy even after the database migration. That's now fixed too.
 
-Two ways to fix that too, if you want it (not required for this migration,
-since your data — students, fees, attendance, settings — is now safe):
+**What changed:** `routes/settings.js` no longer saves uploaded files to
+disk at all. Instead, each upload is:
 
-1. **Render persistent disk** (paid add-on) — mount a disk at
-   `backend/data/uploads` so files survive deploys. Simplest change, but
-   costs extra and doesn't scale to multiple server instances.
-2. **Cloud object storage** (e.g. Cloudinary, AWS S3, Cloudflare R2) —
-   `multer` swaps its `diskStorage` engine for a cloud-upload engine, and
-   `settings.js` stores the returned cloud URL instead of a local `/uploads/…`
-   path. More production-grade, but is a separate follow-up task with its
-   own new dependency and its own API keys.
+1. Resized and compressed with `sharp` (library photos: max 1600px wide,
+   ~72% JPEG quality; the UPI QR: max 900px wide, 90% quality — kept sharper
+   so it stays scannable) — this keeps each image small, typically
+   100–300KB, so a whole gallery stays comfortably under MongoDB's 16MB
+   single-document limit. There's also a soft cap of 60 photos in the
+   gallery as an extra safety margin.
+2. Converted to a base64 data URI (`data:image/jpeg;base64,...`) and stored
+   directly in the same MongoDB document as everything else.
+
+**Frontend needed zero changes** — a data URI works exactly like a normal
+URL wherever the code does `<img src="...">`; `frontend/js/viewSettings.js`,
+`viewDashboard.js`, `viewHome.js`, and `viewGallery.js` don't know or care
+that the string is a data URI instead of a `/uploads/...` path.
+
+**What got removed:** an earlier, incomplete attempt at Cloudinary
+(`backend/cloudinary.js`, `backend/routes/upload.js`) was present in the
+codebase but never actually wired into `server.js`, and had a broken
+`require('../config/cloudinary')` path (no such folder existed) — so it
+couldn't have been the thing serving your photos either way. It's been
+deleted along with the now-unused `cloudinary` / `multer-storage-cloudinary`
+dependencies, to avoid confusion. `sharp` was added instead.
+
+**Note on photos uploaded before this fix:** any photo URLs already saved
+in MongoDB as `/uploads/library-photo-....jpg` (from before this change)
+will keep showing as broken images — the files they pointed to are already
+gone. Just delete those broken entries from the gallery in Settings and
+re-upload; new uploads are stored the safe way described above.
+
+**If you outgrow this later:** for a very large photo library (hundreds of
+high-res images), moving to real cloud object storage (Cloudinary, S3,
+Cloudflare R2) is still the more scalable long-term option — but for a
+single library/coaching center's photo gallery and one QR image, base64-in-
+MongoDB is simpler (no extra account/API keys to manage) and comfortably
+sufficient.
 
 ## How to fetch db.json from Render (before migrating)
 
