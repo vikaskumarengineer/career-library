@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const sharp = require('sharp');
 const { readDb, writeDb } = require('../db');
 const { hashPassword, verifyPassword } = require('../password');
 const asyncHandler = require('../utils/asyncHandler');
+const { toStoredDataUri } = require('../utils/imageStore');
 
 // ---------------------------------------------------------------------
 // WHY THIS FILE NO LONGER WRITES TO LOCAL DISK
@@ -38,17 +38,8 @@ const upload = multer({
   }
 });
 
-// Resizes + compresses an uploaded image buffer into a small JPEG, then
-// returns it as a data URI ready to store directly in MongoDB and drop
-// straight into an <img src="...">.
-async function toStoredDataUri(buffer, { maxWidth = 1600, quality = 72 } = {}) {
-  const outBuffer = await sharp(buffer)
-    .rotate() // respects the photo's EXIF orientation (fixes sideways phone photos)
-    .resize({ width: maxWidth, withoutEnlargement: true })
-    .jpeg({ quality, mozjpeg: true })
-    .toBuffer();
-  return `data:image/jpeg;base64,${outBuffer.toString('base64')}`;
-}
+// Resizes + compresses an uploaded image buffer — see utils/imageStore.js
+// for the shared implementation used here and in routes/students.js.
 
 // GET /api/settings
 router.get('/', asyncHandler(async (req, res) => {

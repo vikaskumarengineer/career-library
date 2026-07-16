@@ -61,11 +61,18 @@ export async function renderMyAccount(root, { rerender }) {
         </div>
       `;
       root.appendChild(qrWrap);
+      const proofWrap = el('div', { style: 'margin-bottom:10px;' });
+      proofWrap.innerHTML = `
+        <label>Upload payment screenshot (optional, helps admin verify faster)</label>
+        <input type="file" id="proofFile" accept="image/*" style="margin-bottom:0;">
+      `;
+      root.appendChild(proofWrap);
       const paidBtn = el('button', { className: 'btn', style: 'margin-bottom:18px;' }, "I've Paid — Notify Admin");
       paidBtn.onclick = async () => {
         paidBtn.disabled = true; paidBtn.textContent = 'Notifying…';
         try {
-          const updated = await api.claimPayment(student.id, currentMonthKey);
+          const file = proofWrap.querySelector('#proofFile').files[0] || null;
+          const updated = await api.claimPayment(student.id, currentMonthKey, file);
           state.studentSession = updated;
           rerender();
         } catch (e) {

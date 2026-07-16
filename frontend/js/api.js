@@ -35,7 +35,17 @@ export const api = {
   importSyllabus: (studentId, syllabus) => request(`/api/students/${studentId}/syllabus/import`, { method: 'POST', body: JSON.stringify({ syllabus }) }),
   deleteStudent: (id) => request('/api/students/' + id, { method: 'DELETE' }),
   setFeeMonth: (id, monthKey, status) => request('/api/students/' + id + '/fee', { method: 'PATCH', body: JSON.stringify({ monthKey, status }) }),
-  claimPayment: (id, monthKey) => request(`/api/students/${id}/fee/claim`, { method: 'PATCH', body: JSON.stringify({ monthKey }) }),
+  claimPayment: async (id, monthKey, screenshotFile) => {
+    const form = new FormData();
+    form.append('monthKey', monthKey);
+    if (screenshotFile) form.append('screenshot', screenshotFile);
+    const res = await fetch(BASE + `/api/students/${id}/fee/claim`, { method: 'PATCH', body: form });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.message || 'Could not submit payment claim');
+    }
+    return res.json();
+  },
 
   // seats
   getSeats: () => request('/api/seats'),

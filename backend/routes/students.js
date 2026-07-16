@@ -1,8 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { readDb, writeDb, monthKey } = require('../db');
 const { hashPassword, verifyPassword } = require('../password');
 const asyncHandler = require('../utils/asyncHandler');
+const { toStoredDataUri } = require('../utils/imageStore');
+
+const uploadProof = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files are allowed'));
+    cb(null, true);
+  }
+});
 
 function uid(prefix) { return prefix + '_' + Math.random().toString(36).slice(2, 9); }
 
@@ -145,13 +156,14 @@ router.patch('/:id/fee', asyncHandler(async (req, res) => {
   res.json(sanitize(student));
 }));
 
-// PATCH /api/students/:id/fee/claim  { monthKey }
-// A student says "I've paid" after scanning the UPI QR. This does NOT mark
-// the fee as paid automatically — there's no payment gateway wired up to
-// confirm that money actually arrived. It just flags the month as
-// "claimed" (pending review) and drops a note in the admin Messages tab,
-// so the admin knows to check their bank/UPI app and confirm manually.
-router.patch('/:id/fee/claim', asyncHandler(async (req, res) => {
+// PATCH /api/students/:id/fee/claim  — multipart/form-data: monthKey, screenshot? (file, optional)
+// A student says "I've paid" after scanning the UPI QR, optionally attaching
+// a screenshot of the payment as proof. This does NOT mark the fee as paid
+// automatically — there's no payment gateway wired up to confirm that money
+// actually arrived. It just flags the month as "claimed" (pending review),
+// stores the screenshot (if provided) for the admin to check, and drops a
+// note in the admin Messages tab so they know to verify and confirm manually.
+router.patch('/:id/fee/claim', uploadProof.single('screenshot'), asyncHandler(async (req, res) => {
   const db = await readDb();
   const student = db.students.find(s => s.id === req.params.id);
   if (!student) return res.status(404).json({ message: 'Student not found' });
@@ -169,12 +181,20 @@ router.patch('/:id/fee/claim', asyncHandler(async (req, res) => {
   entry.claimedDate = new Date().toISOString();
   if (key === monthKey()) student.feeStatus = 'claimed';
 
+  let hasProof = false;
+  if (req.file) {
+    // keep proof screenshots a bit sharper/larger than gallery photos, since
+    // the admin needs to actually read the payment details in them
+    entry.paymentProof = await toStoredDataUri(req.file.buffer, { maxWidth: 1000, quality: 82 });
+    hasProof = true;
+  }
+
   db.queries = db.queries || [];
   db.queries.push({
     id: uid('q'),
     studentId: student.id,
     studentName: student.name,
-    text: `💰 ${student.name} (${student.roll}) says they paid ₹${entry.amount} for ${key} via UPI. Please verify in your bank/UPI app, then mark it Paid on the Fees tab.`,
+    text: `💰 ${student.name} (${student.roll}) says they paid ₹${entry.amount} for ${key} via UPI${hasProof ? ' (screenshot attached — see Fees tab)' : ''}. Please verify in your bank/UPI app, then mark it Paid on the Fees tab.`,
     date: new Date().toLocaleString('en-IN'),
     resolved: false
   });
